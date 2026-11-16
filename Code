@@ -1,0 +1,572 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  Activity, Heart, Brain, Bone, Droplets, Moon, 
+  ShieldAlert, CheckCircle2, Circle, MessageSquare, 
+  ChevronRight, Terminal, Zap, Stethoscope, X, Wind, Layers
+} from 'lucide-react';
+import { 
+  LineChart, Line, AreaChart, Area, XAxis, YAxis, 
+  CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar 
+} from 'recharts';
+
+// --- MOCK DATA ---
+const healthTrendData = [
+  { day: 'Mon', hr: 68, radiation: 0.12, sleep: 7.5 },
+  { day: 'Tue', hr: 70, radiation: 0.15, sleep: 6.8 },
+  { day: 'Wed', hr: 72, radiation: 0.14, sleep: 7.0 },
+  { day: 'Thu', hr: 75, radiation: 0.22, sleep: 5.5 },
+  { day: 'Fri', hr: 71, radiation: 0.18, sleep: 8.0 },
+  { day: 'Sat', hr: 69, radiation: 0.11, sleep: 7.2 },
+  { day: 'Sun', hr: 73, radiation: 0.13, sleep: 6.5 },
+];
+
+const initialMissions = [
+  { id: 1, title: '2 Hours Resistive Exercise (ARED)', completed: false, category: 'muscles' },
+  { id: 2, title: 'Mental Health Journal Entry', completed: true, category: 'brain' },
+  { id: 3, title: 'Consume 2.5L Hydration', completed: false, category: 'vitals' },
+  { id: 4, title: 'Bone Density Scan (Ultrasound)', completed: false, category: 'bones' },
+  { id: 5, title: 'Radiation Dosimeter Sync', completed: true, category: 'vitals' },
+];
+
+const aiInstructions = [
+  { trigger: 'Heart Rate', response: 'To measure Heart Rate: Place the index and middle fingers on your neck to the side of your windpipe. Count the beats for 30 seconds and multiply by 2. Alternatively, sync your wearable bio-monitor.' },
+  { trigger: 'Blood Pressure', response: 'To measure Blood Pressure: Secure the cuff around your left upper arm, 1 inch above the elbow. Keep your arm rested at heart level. Press START on the automated sphygmomanometer.' },
+  { trigger: 'Radiation', response: 'To check Radiation: Dock your personal dosimeter into the terminal reader. Ensure the device clicks into place. Data will sync automatically within 10 seconds.' },
+  { trigger: 'Bone Density', response: 'To measure Bone Density: Utilize the portable calcaneal ultrasound device. Apply acoustic gel to your heel, place the probe firmly, and initiate the 15-second scan.' },
+];
+
+// --- COMPONENTS ---
+
+const StatusBadge = ({ status }) => {
+  const colors = {
+    good: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50',
+    warning: 'bg-amber-500/20 text-amber-400 border-amber-500/50',
+    critical: 'bg-rose-500/20 text-rose-400 border-rose-500/50'
+  };
+  
+  return (
+    <span className={`px-2 py-1 text-xs font-mono border rounded-full ${colors[status]} animate-pulse`}>
+      {status.toUpperCase()}
+    </span>
+  );
+};
+
+const VitalCard = ({ title, value, unit, icon: Icon, status }) => {
+  const statusColors = {
+    good: 'text-emerald-400',
+    warning: 'text-amber-400',
+    critical: 'text-rose-500'
+  };
+
+  const bgColors = {
+    good: 'bg-emerald-950/20 border-emerald-900/30',
+    warning: 'bg-amber-950/20 border-amber-900/30',
+    critical: 'bg-rose-950/20 border-rose-900/30'
+  };
+
+  return (
+    <div className={`p-4 rounded-xl border backdrop-blur-md flex flex-col justify-between ${bgColors[status]}`}>
+      <div className="flex justify-between items-start mb-2">
+        <div className="flex items-center gap-2">
+          <Icon size={18} className={statusColors[status]} />
+          <span className="text-slate-400 text-sm font-semibold tracking-wider uppercase">{title}</span>
+        </div>
+        <StatusBadge status={status} />
+      </div>
+      <div className="mt-2">
+        <span className={`text-3xl font-bold font-mono tracking-tighter ${statusColors[status]}`}>{value}</span>
+        <span className="text-slate-500 ml-1 text-sm">{unit}</span>
+      </div>
+    </div>
+  );
+};
+
+// Advanced Stylized SVG Holographic Human Body - P.U.L.S.A.R. Anatomical Schematic
+const BodyScan = ({ statusMap }) => {
+  const [activeLayer, setActiveLayer] = useState('nervous');
+
+  const layers = {
+    nervous: { id: 'nervous', label: 'Nervous', icon: Brain, color: '#06b6d4' }, // cyan
+    cardiovascular: { id: 'cardiovascular', label: 'Cardiovascular', icon: Heart, color: '#f43f5e' }, // rose
+    skeletal: { id: 'skeletal', label: 'Skeletal', icon: Bone, color: '#e2e8f0' }, // slate-200
+    muscular: { id: 'muscular', label: 'Muscular', icon: Activity, color: '#fb923c' }, // orange
+    respiratory: { id: 'respiratory', label: 'Respiratory', icon: Wind, color: '#34d399' } // emerald
+  };
+
+  const callouts = {
+    nervous: [
+      { id: 'c1', x: 20, y: 40, targetX: 200, targetY: 70, title: 'Cognitive Load', value: 'Nominal', status: 'good', detail: 'Alpha waves stable' },
+      { id: 'c2', x: 260, y: 150, targetX: 200, targetY: 140, title: 'Cosmic Radiation', value: '0.22 mSv', status: 'warning', detail: 'Spinal cord exposure' }
+    ],
+    cardiovascular: [
+      { id: 'c1', x: 20, y: 80, targetX: 200, targetY: 100, title: 'Fluid Shift', value: 'Cephalic +15%', status: 'warning', detail: 'Jugular distension' },
+      { id: 'c2', x: 260, y: 180, targetX: 215, targetY: 170, title: 'Cardiac Output', value: '4.8 L/min', status: 'good', detail: 'Resting steady' }
+    ],
+    skeletal: [
+      { id: 'c1', x: 20, y: 140, targetX: 200, targetY: 160, title: 'Spinal Elongation', value: '+4.2 cm', status: 'warning', detail: 'Microgravity effect' },
+      { id: 'c2', x: 260, y: 350, targetX: 220, targetY: 340, title: 'Bone Density', value: '-1.2% Loss', status: 'critical', detail: 'Femoral neck thinning' }
+    ],
+    muscular: [
+      { id: 'c1', x: 20, y: 200, targetX: 160, targetY: 210, title: 'Core Strength', value: '92%', status: 'good', detail: 'ARED regimen holding' },
+      { id: 'c2', x: 260, y: 420, targetX: 225, targetY: 410, title: 'Calf Atrophy', value: '-5.4%', status: 'critical', detail: 'Soleus mass reduction' }
+    ],
+    respiratory: [
+      { id: 'c1', x: 20, y: 120, targetX: 180, targetY: 180, title: 'O2 Saturation', value: '98%', status: 'good', detail: 'Cabin mix optimal' },
+      { id: 'c2', x: 260, y: 220, targetX: 220, targetY: 200, title: 'VO2 Max', value: '42 ml/kg', status: 'warning', detail: 'Slight aerobic decline' }
+    ]
+  };
+
+  const activeColor = layers[activeLayer].color;
+  const currentCallouts = callouts[activeLayer];
+
+  return (
+    <div className="relative w-full h-[600px] flex flex-col items-center bg-slate-950 rounded-xl border border-slate-800 overflow-hidden shadow-2xl">
+      
+      {/* Background Holographic Grid */}
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:40px_40px] opacity-30"></div>
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-cyan-900/10 via-slate-950/90 to-slate-950"></div>
+      
+      {/* Layer Control Panel */}
+      <div className="absolute top-4 left-0 right-0 flex justify-center z-30">
+        <div className="bg-slate-900/80 backdrop-blur-md border border-slate-700 rounded-full p-1.5 flex gap-1 shadow-lg">
+          {Object.values(layers).map((layer) => (
+            <button
+              key={layer.id}
+              onClick={() => setActiveLayer(layer.id)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all duration-300 ${
+                activeLayer === layer.id 
+                  ? 'bg-slate-800 text-white shadow-[0_0_15px_rgba(255,255,255,0.1)]' 
+                  : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'
+              }`}
+              style={{
+                borderColor: activeLayer === layer.id ? layer.color : 'transparent',
+                borderWidth: '1px'
+              }}
+            >
+              <layer.icon size={14} style={{ color: activeLayer === layer.id ? layer.color : 'inherit' }} />
+              <span className="hidden sm:inline">{layer.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Main SVG Schematic */}
+      <svg viewBox="0 0 400 600" className="w-full h-full z-10 drop-shadow-2xl">
+        <defs>
+          <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="4" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur"/>
+              <feMergeNode in="blur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+          <linearGradient id="bodyBase" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.15" />
+            <stop offset="100%" stopColor="#0ea5e9" stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
+
+        {/* --- BASE BODY SILHOUETTE --- */}
+        <g stroke="#0ea5e9" strokeWidth="1" opacity="0.4" strokeDasharray="3 3">
+          {/* Head & Neck */}
+          <path d="M170 60 C170 30, 230 30, 230 60 C230 85, 215 105, 210 115 L210 130 L190 130 L190 115 C185 105, 170 85, 170 60 Z" fill="url(#bodyBase)"/>
+          {/* Torso */}
+          <path d="M190 130 L210 130 L260 160 C280 180, 270 250, 260 290 L240 370 L160 370 L140 290 C130 250, 120 180, 140 160 Z" fill="url(#bodyBase)"/>
+          {/* Arms */}
+          <path d="M140 160 C110 180, 100 230, 90 310 L70 410 L90 430 L110 310 C120 250, 130 200, 150 180 Z" fill="url(#bodyBase)"/>
+          <path d="M260 160 C290 180, 300 230, 310 310 L330 410 L310 430 L290 310 C280 250, 270 200, 250 180 Z" fill="url(#bodyBase)"/>
+          {/* Legs */}
+          <path d="M170 410 L230 410 L240 550 L250 670 L220 670 L210 550 L200 410" fill="url(#bodyBase)"/>
+          <path d="M170 410 L200 410 L190 550 L180 670 L150 670 L160 550 L170 410 Z" fill="url(#bodyBase)"/>
+          <path d="M200 410 L230 410 L240 550 L250 670 L220 670 L210 550 L200 410 Z" fill="url(#bodyBase)"/>
+        </g>
+
+        {/* --- ANATOMICAL LAYERS --- */}
+        
+        {/* NERVOUS SYSTEM */}
+        <g className={`transition-opacity duration-500 ${activeLayer === 'nervous' ? 'opacity-100' : 'opacity-0'}`}>
+          <path d="M185 65 C185 45, 215 45, 215 65 C215 85, 205 95, 200 100 C195 95, 185 85, 185 65 Z" fill={layers.nervous.color} filter="url(#glow)"/>
+          <line x1="200" y1="100" x2="200" y2="350" stroke={layers.nervous.color} strokeWidth="4" filter="url(#glow)"/>
+          {/* Nerves branching */}
+          {[140, 170, 200, 230, 260, 290, 320].map((y, i) => (
+            <g key={i}>
+              <path d={`M200 ${y} Q 150 ${y+20} 110 ${y+40}`} stroke={layers.nervous.color} strokeWidth="1" fill="none" opacity="0.7"/>
+              <path d={`M200 ${y} Q 250 ${y+20} 290 ${y+40}`} stroke={layers.nervous.color} strokeWidth="1" fill="none" opacity="0.7"/>
+            </g>
+          ))}
+        </g>
+
+        {/* CARDIOVASCULAR SYSTEM */}
+        <g className={`transition-opacity duration-500 ${activeLayer === 'cardiovascular' ? 'opacity-100' : 'opacity-0'}`}>
+          {/* Heart */}
+          <path d="M195 160 C 185 150, 215 140, 215 170 L 205 185 L 185 170 Z" fill={layers.cardiovascular.color} filter="url(#glow)"/>
+          <path d="M205 160 C 215 150, 185 140, 185 170 L 195 185 L 215 170 Z" fill="#3b82f6" filter="url(#glow)" opacity="0.8"/>
+          {/* Main Arteries (Red) */}
+          <path d="M200 145 L200 120 M195 130 L185 100 M205 130 L215 100" stroke={layers.cardiovascular.color} strokeWidth="2.5" fill="none" filter="url(#glow)"/>
+          <path d="M200 185 L200 360 M200 360 L180 500 M200 360 L220 500" stroke={layers.cardiovascular.color} strokeWidth="3" fill="none" filter="url(#glow)"/>
+          <path d="M195 160 L140 180 L100 250" stroke={layers.cardiovascular.color} strokeWidth="2" fill="none" opacity="0.8"/>
+          <path d="M205 160 L260 180 L300 250" stroke={layers.cardiovascular.color} strokeWidth="2" fill="none" opacity="0.8"/>
+          {/* Main Veins (Blue) */}
+          <path d="M195 180 L195 360 M195 360 L175 500 M195 360 L215 500" stroke="#3b82f6" strokeWidth="2" fill="none" opacity="0.8"/>
+        </g>
+
+        {/* SKELETAL SYSTEM */}
+        <g className={`transition-opacity duration-500 ${activeLayer === 'skeletal' ? 'opacity-100' : 'opacity-0'}`}>
+          {/* Skull & Spine */}
+          <ellipse cx="200" cy="70" rx="20" ry="25" fill="none" stroke={layers.skeletal.color} strokeWidth="3" filter="url(#glow)"/>
+          <line x1="200" y1="95" x2="200" y2="350" stroke={layers.skeletal.color} strokeWidth="5" strokeDasharray="6 3" filter="url(#glow)"/>
+          {/* Ribcage */}
+          {[160, 180, 200, 220, 240, 260].map((y, i) => (
+            <path key={i} d={`M200 ${y} Q 150 ${y-10} 160 ${y+20} M200 ${y} Q 250 ${y-10} 240 ${y+20}`} stroke={layers.skeletal.color} strokeWidth="2" fill="none" opacity="0.8"/>
+          ))}
+          {/* Pelvis */}
+          <path d="M180 340 C160 320, 150 360, 170 380 L200 390 L230 380 C250 360, 240 320, 220 340 Z" fill="none" stroke={layers.skeletal.color} strokeWidth="3"/>
+          {/* Limbs */}
+          <line x1="160" y1="170" x2="110" y2="250" stroke={layers.skeletal.color} strokeWidth="4" strokeLinecap="round"/>
+          <line x1="240" y1="170" x2="290" y2="250" stroke={layers.skeletal.color} strokeWidth="4" strokeLinecap="round"/>
+          <line x1="175" y1="380" x2="165" y2="520" stroke={layers.skeletal.color} strokeWidth="5" strokeLinecap="round" filter="url(#glow)"/>
+          <line x1="225" y1="380" x2="235" y2="520" stroke={layers.skeletal.color} strokeWidth="5" strokeLinecap="round"/>
+        </g>
+
+        {/* MUSCULAR SYSTEM */}
+        <g className={`transition-opacity duration-500 ${activeLayer === 'muscular' ? 'opacity-100' : 'opacity-0'}`}>
+          {/* Torso Core */}
+          <path d="M185 160 Q 160 200 175 250 Q 160 300 180 360 L 220 360 Q 240 300 225 250 Q 240 200 215 160 Z" fill={layers.muscular.color} opacity="0.3" filter="url(#glow)"/>
+          {/* Abdominal segments */}
+          {[220, 250, 280, 310].map(y => (
+            <line key={y} x1="180" y1={y} x2="220" y2={y} stroke={layers.muscular.color} strokeWidth="3" opacity="0.5"/>
+          ))}
+          <line x1="200" y1="200" x2="200" y2="350" stroke={layers.muscular.color} strokeWidth="2" opacity="0.7"/>
+          {/* Legs (Quads & Calves) */}
+          <path d="M175 380 Q 150 450 165 500" stroke={layers.muscular.color} strokeWidth="15" fill="none" opacity="0.4" strokeLinecap="round"/>
+          <path d="M225 380 Q 250 450 235 500" stroke={layers.muscular.color} strokeWidth="15" fill="none" opacity="0.4" strokeLinecap="round"/>
+          <path d="M165 530 Q 155 580 170 630" stroke={layers.muscular.color} strokeWidth="10" fill="none" opacity="0.6" strokeLinecap="round" filter="url(#glow)"/>
+          <path d="M235 530 Q 245 580 230 630" stroke={layers.muscular.color} strokeWidth="10" fill="none" opacity="0.6" strokeLinecap="round"/>
+        </g>
+
+        {/* RESPIRATORY SYSTEM */}
+        <g className={`transition-opacity duration-500 ${activeLayer === 'respiratory' ? 'opacity-100' : 'opacity-0'}`}>
+          {/* Trachea */}
+          <line x1="200" y1="100" x2="200" y2="150" stroke={layers.respiratory.color} strokeWidth="4" filter="url(#glow)"/>
+          <path d="M200 150 L 180 170 M 200 150 L 220 170" stroke={layers.respiratory.color} strokeWidth="3" fill="none"/>
+          {/* Lungs */}
+          <path d="M195 160 C 150 140, 140 240, 160 270 C 180 300, 195 280, 195 240 Z" fill={layers.respiratory.color} opacity="0.4" filter="url(#glow)"/>
+          <path d="M205 160 C 250 140, 260 240, 240 270 C 220 300, 205 280, 205 240 Z" fill={layers.respiratory.color} opacity="0.4" filter="url(#glow)"/>
+          {/* Bronchioles */}
+          <path d="M180 170 L 165 200 M 175 180 L 155 190 M 185 190 L 175 230" stroke={layers.respiratory.color} strokeWidth="1.5" fill="none" opacity="0.8"/>
+          <path d="M220 170 L 235 200 M 225 180 L 245 190 M 215 190 L 225 230" stroke={layers.respiratory.color} strokeWidth="1.5" fill="none" opacity="0.8"/>
+        </g>
+
+        {/* --- HUD CALLOUT LINES --- */}
+        {currentCallouts.map((callout, i) => (
+          <g key={`line-${i}`}>
+            <circle cx={callout.targetX} cy={callout.targetY} r="3" fill={activeColor} filter="url(#glow)">
+              <animate attributeName="r" values="3;6;3" dur="2s" repeatCount="indefinite" />
+            </circle>
+            <path 
+              d={`M ${callout.targetX} ${callout.targetY} L ${callout.targetX + (callout.x > 200 ? 20 : -20)} ${callout.y + 20} L ${callout.x > 200 ? callout.x : callout.x + 120} ${callout.y + 20}`}
+              stroke={activeColor} 
+              strokeWidth="1" 
+              fill="none" 
+              opacity="0.5"
+              strokeDasharray="4 4"
+            />
+          </g>
+        ))}
+
+        {/* --- HUD CALLOUT BOXES (Using foreignObject for perfect alignment) --- */}
+        {currentCallouts.map((callout, i) => {
+          const statusColors = {
+            good: 'text-emerald-400 border-emerald-500/30 bg-emerald-950/20',
+            warning: 'text-amber-400 border-amber-500/30 bg-amber-950/20',
+            critical: 'text-rose-400 border-rose-500/30 bg-rose-950/20'
+          };
+          const statusGlow = {
+            good: 'shadow-[0_0_10px_rgba(52,211,153,0.1)]',
+            warning: 'shadow-[0_0_10px_rgba(251,191,36,0.1)]',
+            critical: 'shadow-[0_0_15px_rgba(244,63,94,0.2)]'
+          };
+
+          return (
+            <foreignObject key={`box-${i}`} x={callout.x} y={callout.y} width="120" height="70" className="overflow-visible">
+              <div 
+                className={`p-1.5 rounded border backdrop-blur-md animate-in fade-in zoom-in duration-500 flex flex-col justify-center h-full ${statusColors[callout.status]} ${statusGlow[callout.status]}`}
+                style={{
+                  borderLeftWidth: callout.x > 200 ? '1px' : '3px',
+                  borderRightWidth: callout.x > 200 ? '3px' : '1px',
+                  borderLeftColor: callout.x < 200 ? activeColor : undefined,
+                  borderRightColor: callout.x > 200 ? activeColor : undefined,
+                }}
+              >
+                <div className="text-[10px] font-bold text-slate-200 uppercase tracking-tight leading-tight truncate">
+                  {callout.title}
+                </div>
+                <div className="text-sm font-mono font-black mt-0.5 tracking-tighter">
+                  {callout.value}
+                </div>
+                <div className="text-[8px] text-slate-400 mt-1 uppercase truncate opacity-80">
+                  {callout.detail}
+                </div>
+              </div>
+            </foreignObject>
+          );
+        })}
+      </svg>
+      
+      {/* Footer Diagnostic Tag */}
+      <div className="absolute bottom-4 right-4 flex items-center gap-2 bg-slate-900/80 px-3 py-1.5 rounded border border-slate-700 backdrop-blur-sm z-20">
+         <div className={`w-2 h-2 rounded-full animate-pulse shadow-[0_0_5px_currentColor]`} style={{ backgroundColor: activeColor, color: activeColor }}></div>
+         <span className="text-slate-300 font-mono text-[10px] uppercase tracking-widest">
+           System Focus: <span style={{ color: activeColor }} className="font-bold">{activeLayer}</span>
+         </span>
+      </div>
+    </div>
+  );
+};
+
+export default function AstroHealthMonitor() {
+  const [missions, setMissions] = useState(initialMissions);
+  const [aiChat, setAiChat] = useState([]);
+  const [aiQuery, setAiQuery] = useState('');
+  
+  // Body status derived from current health metrics
+  const bodyStatus = {
+    brain: 'good',
+    heart: 'warning', // Elevated HR mock scenario
+    muscles: 'good',
+    bones: 'critical', // Typical microgravity issue
+    immune: 'good'
+  };
+
+  const completedMissions = missions.filter(m => m.completed).length;
+  const missionProgress = (completedMissions / missions.length) * 100;
+
+  const toggleMission = (id) => {
+    setMissions(missions.map(m => m.id === id ? { ...m, completed: !m.completed } : m));
+  };
+
+  const handleAiQuery = (trigger) => {
+    const response = aiInstructions.find(inst => inst.trigger === trigger)?.response 
+      || "I'm sorry, Commander. I don't have protocol data for that query yet.";
+    
+    setAiChat([...aiChat, { q: trigger, a: response }]);
+    setAiQuery('');
+  };
+
+  useEffect(() => {
+    // Initial AI greeting
+    setAiChat([{ 
+      q: 'System Boot', 
+      a: 'Welcome Commander. A.R.E.S. Medical Assistant is online. Select a measurement below for protocol instructions.' 
+    }]);
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-200 p-4 md:p-6 font-sans selection:bg-cyan-500/30">
+      
+      {/* HEADER */}
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 border-b border-slate-800 pb-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 tracking-tighter flex items-center gap-2">
+            <Zap className="text-cyan-400" /> P.U.L.S.A.R. Care
+          </h1>
+          <p className="text-slate-500 font-mono text-xs uppercase tracking-widest mt-1">Physiological Unified Logging & Spaceflight Analysis Routine</p>
+        </div>
+        
+        <div className="flex gap-4">
+          <div className="text-right flex flex-col">
+            <span className="text-slate-400 text-xs font-mono uppercase">Mission Day</span>
+            <span className="text-cyan-400 font-bold font-mono text-lg">SOL 412</span>
+          </div>
+          <div className="w-px bg-slate-800 h-10"></div>
+          <div className="text-right flex flex-col">
+            <span className="text-slate-400 text-xs font-mono uppercase">Vessel Status</span>
+            <span className="text-emerald-400 font-bold font-mono text-lg flex items-center gap-1">
+              <ShieldAlert size={14} /> NOMINAL
+            </span>
+          </div>
+        </div>
+      </header>
+
+      {/* MAIN GRID */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        {/* LEFT COLUMN: Body Scan & AI */}
+        <div className="lg:col-span-5 flex flex-col gap-6">
+          
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-xl">
+            <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+              <Layers size={16} /> Anatomical Schematic
+            </h2>
+            <BodyScan statusMap={bodyStatus} />
+          </div>
+
+          {/* AI ASSISTANT PANEL */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-xl flex-grow flex flex-col">
+            <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+              <MessageSquare size={16} /> A.R.E.S. Medical Assistant
+            </h2>
+            
+            <div className="flex-grow bg-slate-950 rounded-lg p-3 overflow-y-auto mb-4 border border-slate-800 max-h-[250px] font-mono text-sm flex flex-col gap-3">
+              {aiChat.map((msg, i) => (
+                <div key={i} className="flex flex-col gap-1">
+                  {msg.q !== 'System Boot' && (
+                    <div className="text-slate-400 self-end bg-slate-800/50 px-2 py-1 rounded">
+                      &gt; {msg.q}
+                    </div>
+                  )}
+                  <div className="text-cyan-400 bg-cyan-950/20 border border-cyan-900/30 px-3 py-2 rounded-lg flex items-start gap-2">
+                    <Terminal size={14} className="mt-1 flex-shrink-0" />
+                    <span>{msg.a}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {aiInstructions.map(inst => (
+                <button 
+                  key={inst.trigger}
+                  onClick={() => handleAiQuery(inst.trigger)}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-md transition-colors border border-slate-700 flex items-center gap-1"
+                >
+                  <Stethoscope size={12} /> {inst.trigger}
+                </button>
+              ))}
+            </div>
+          </div>
+
+        </div>
+
+        {/* RIGHT COLUMN: Vitals, Charts, Missions */}
+        <div className="lg:col-span-7 flex flex-col gap-6">
+          
+          {/* VITALS GRID */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <VitalCard title="Heart Rate" value="98" unit="bpm" icon={Heart} status="warning" />
+            <VitalCard title="Blood Pressure" value="118/75" unit="mmHg" icon={Activity} status="good" />
+            <VitalCard title="Radiation" value="0.22" unit="mSv" icon={ShieldAlert} status="warning" />
+            <VitalCard title="Bone Density" value="-1.2" unit="T-score" icon={Bone} status="critical" />
+          </div>
+
+          {/* CHARTS SECTION */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+            {/* Heart Rate Trend */}
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-xl">
+              <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">Heart Rate Trend (7 Days)</h2>
+              <div className="h-48 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={healthTrendData}>
+                    <defs>
+                      <linearGradient id="colorHr" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                    <XAxis dataKey="day" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} domain={['dataMin - 5', 'dataMax + 5']} />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', color: '#e2e8f0' }}
+                      itemStyle={{ color: '#f59e0b' }}
+                    />
+                    <Area type="monotone" dataKey="hr" stroke="#f59e0b" strokeWidth={2} fillOpacity={1} fill="url(#colorHr)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Radiation & Sleep */}
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-xl">
+              <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">Env Risks & Sleep</h2>
+              <div className="h-48 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={healthTrendData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                    <XAxis dataKey="day" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis yAxisId="left" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} orientation="left" />
+                    <YAxis yAxisId="right" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} orientation="right" />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', color: '#e2e8f0' }}
+                      cursor={{fill: '#1e293b', opacity: 0.4}}
+                    />
+                    <Bar yAxisId="left" dataKey="radiation" name="Rad (mSv)" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={8} />
+                    <Bar yAxisId="right" dataKey="sleep" name="Sleep (h)" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={8} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            
+          </div>
+
+          {/* DAILY MISSIONS (GAMIFICATION) */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl flex-grow">
+            <div className="flex justify-between items-end mb-4">
+              <div>
+                <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+                  Daily Health Missions
+                </h2>
+                <p className="text-slate-400 text-sm">Complete protocols to maintain optimal flight readiness.</p>
+              </div>
+              <div className="text-right">
+                <span className="text-2xl font-black text-cyan-400 font-mono">{Math.round(missionProgress)}%</span>
+              </div>
+            </div>
+            
+            {/* Progress Bar */}
+            <div className="w-full bg-slate-800 rounded-full h-2.5 mb-6 overflow-hidden border border-slate-700">
+              <div 
+                className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2.5 rounded-full transition-all duration-500 ease-out" 
+                style={{ width: `${missionProgress}%` }}
+              ></div>
+            </div>
+
+            {/* Task List */}
+            <div className="space-y-3">
+              {missions.map((mission) => (
+                <div 
+                  key={mission.id} 
+                  onClick={() => toggleMission(mission.id)}
+                  className={`flex items-center gap-4 p-3 rounded-lg border cursor-pointer transition-all duration-200 ${
+                    mission.completed 
+                      ? 'bg-emerald-950/20 border-emerald-900/30 opacity-75' 
+                      : 'bg-slate-800/50 border-slate-700 hover:bg-slate-800'
+                  }`}
+                >
+                  <button className={`flex-shrink-0 transition-colors ${mission.completed ? 'text-emerald-400' : 'text-slate-500 hover:text-cyan-400'}`}>
+                    {mission.completed ? <CheckCircle2 size={24} /> : <Circle size={24} />}
+                  </button>
+                  <span className={`flex-grow font-medium ${mission.completed ? 'text-slate-400 line-through' : 'text-slate-200'}`}>
+                    {mission.title}
+                  </span>
+                  {mission.category === 'muscles' && <Activity size={16} className="text-slate-600" />}
+                  {mission.category === 'brain' && <Brain size={16} className="text-slate-600" />}
+                  {mission.category === 'bones' && <Bone size={16} className="text-slate-600" />}
+                  {mission.category === 'vitals' && <Droplets size={16} className="text-slate-600" />}
+                </div>
+              ))}
+            </div>
+
+            {missionProgress === 100 && (
+              <div className="mt-6 p-3 bg-emerald-950/40 border border-emerald-500/30 rounded-lg text-emerald-400 text-sm font-mono flex items-center justify-center gap-2 animate-pulse">
+                <CheckCircle2 size={16} /> ALL DAILY PROTOCOLS COMPLETE. EXCELLENT WORK, COMMANDER.
+              </div>
+            )}
+          </div>
+
+        </div>
+      </div>
+      
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes scan {
+          0% { top: 0%; opacity: 0; }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { top: 100%; opacity: 0; }
+        }
+      `}} />
+    </div>
+  );
+}
